@@ -7,6 +7,7 @@ const port = process.env.PORT || 3000;
 const publicDirectory = path.join(__dirname, "public");
 const userDataDirectory = path.join(__dirname, "user-data");
 const sessions = new Map();
+const mmoPlayers = new Map();
 
 const contentTypes = { ".css": "text/css", ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml" };
 fs.mkdirSync(userDataDirectory, { recursive: true });
@@ -79,6 +80,24 @@ function createSession(response, profile) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (pathname === "/api/mmo" && request.method === "GET") {
+    const id = sessionFrom(request);
+    if (!id) return sendJson(response, 401, { error: "Not signed in." });
+    const now = Date.now();
+    for (const [playerId, player] of mmoPlayers) if (now - player.updatedAt > 15000) mmoPlayers.delete(playerId);
+    return sendJson(response, 200, { players: [...mmoPlayers.values()] });
+  }
+
+  if (pathname === "/api/mmo" && request.method === "POST") {
+    const id = sessionFrom(request);
+    if (!id) return sendJson(response, 401, { error: "Not signed in." });
+    const update = await readBody(request);
+    mmoPlayers.set(id, {
+      id, name: String(update.name || "Player").slice(0, 20), className: ["warrior", "rogue", "wizard"].includes(update.className) ? update.className : "warrior",
+      x: Number(update.x) || 0, y: Number(update.y) || 0, level: Math.max(1, Number(update.level) || 1), updatedAt: Date.now()
+    });
+    return sendJson(response, 200, { ok: true });
+  }
   if (pathname === "/api/register" && request.method === "POST") {
     const { username = "", password = "" } = await readBody(request);
     const normalizedUsername = username.trim().toLowerCase();

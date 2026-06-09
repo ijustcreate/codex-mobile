@@ -28,6 +28,7 @@ function showPage(path = window.location.pathname) {
   const route = routes[path] || routes["/"];
   document.querySelector("#navigation").innerHTML = navigation(routes, path, currentUser);
   document.querySelector("#app").innerHTML = route.render();
+  window.scrollTo(0, 0);
 }
 
 document.addEventListener("submit", async event => {

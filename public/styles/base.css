@@ -51,8 +51,10 @@ h1 { max-width: 850px; margin: 0; font-size: clamp(4rem, 13vw, 9rem); line-heigh
 
 @keyframes arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 680px) {
-  .nav-shell { align-items: flex-start; gap: 10px; padding: 14px; }
-  .nav-links { display: grid; grid-template-columns: repeat(2, 1fr); }
-  .nav-link { padding: 7px 9px; }
+  .nav-shell { width:calc(100% - 16px);margin:8px;padding:8px 9px;gap:5px;border-radius:14px; }
+  .brand { display:none; }
+  .nav-links { display:flex;gap:1px;margin:0 auto; }
+  .nav-link { padding:8px 9px;font-size:.72rem; }
+  .user-button { max-width:70px;overflow:hidden;padding:7px 8px;font-size:.7rem; }
   .grid { grid-template-columns: 1fr; margin-top: 48px; }
 }
