@@ -9,6 +9,7 @@ const userDataDirectory = path.join(__dirname, "user-data");
 const sessions = new Map();
 const mmoPlayers = new Map();
 const stopMotionDirectory = path.join(__dirname, "user-data", "_stop-motion-projects");
+const scoresFile = path.join(__dirname, "user-data", "tab-three-high-scores.json");
 fs.mkdirSync(stopMotionDirectory, { recursive: true });
 
 const contentTypes = { ".css": "text/css", ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml" };
@@ -82,6 +83,17 @@ function createSession(response, profile) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (pathname === "/api/scores" && request.method === "GET") return sendJson(response, 200, { scores: fs.existsSync(scoresFile) ? JSON.parse(fs.readFileSync(scoresFile, "utf8")) : [] });
+  if (pathname === "/api/scores" && request.method === "POST") {
+    const id = sessionFrom(request); if (!id) return sendJson(response, 401, { error: "Not signed in." });
+    const profile = JSON.parse(fs.readFileSync(path.join(userDataDirectory, id, "profile.json"), "utf8")); const body = await readBody(request);
+    const scores = fs.existsSync(scoresFile) ? JSON.parse(fs.readFileSync(scoresFile, "utf8")) : []; scores.push({ name: profile.name, score: Number(body.score)||0, level: Number(body.level)||1, date:new Date().toISOString() }); scores.sort((a,b)=>b.score-a.score); fs.writeFileSync(scoresFile,JSON.stringify(scores.slice(0,25),null,2)); return sendJson(response,200,{scores:scores.slice(0,10)});
+  }
+  if (pathname === "/api/stop-motion/save" && request.method === "POST") {
+    const id = sessionFrom(request); if (!id) return sendJson(response, 401, { error: "Not signed in." }); const body=await readBody(request);
+    const clean=v=>String(v||"untitled").replace(/[^a-z0-9_-]/gi,"-").replace(/-+/g,"-").slice(0,40); const filename=`${clean(body.creator)}_${clean(body.name)}_${new Date().toISOString().replace(/[:.]/g,"-")}.json`;
+    fs.writeFileSync(path.join(stopMotionDirectory,filename),JSON.stringify({creator:body.creator,name:body.name,createdAt:new Date().toISOString(),frames:body.frames},null,2)); return sendJson(response,200,{filename});
+  }
   if (pathname === "/api/stop-motion" && request.method === "GET") {
     const id = sessionFrom(request); if (!id) return sendJson(response, 401, { error: "Not signed in." });
     const file = path.join(stopMotionDirectory, `${id}.json`);
