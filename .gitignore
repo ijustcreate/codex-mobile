@@ -5,3 +5,5 @@ user-data/*
 !user-data/README.md
 tools/*
 !tools/README.md
+*-live.log
+*-live-error.log
