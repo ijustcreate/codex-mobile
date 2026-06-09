@@ -29,9 +29,9 @@ function readBody(request) {
   });
 }
 
-function safeUserId(email) {
-  const readable = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 32) || "user";
-  return `${readable}-${crypto.createHash("sha256").update(email).digest("hex").slice(0, 8)}`;
+function safeUserId(username) {
+  const readable = username.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 32) || "user";
+  return `${readable}-${crypto.createHash("sha256").update(username).digest("hex").slice(0, 8)}`;
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
@@ -43,20 +43,20 @@ function getUserFolders() {
   return fs.readdirSync(userDataDirectory, { withFileTypes: true }).filter(item => item.isDirectory()).map(item => path.join(userDataDirectory, item.name));
 }
 
-function findUser(email) {
-  const normalized = email.trim().toLowerCase();
+function findUser(username) {
+  const normalized = username.trim().toLowerCase();
   for (const folder of getUserFolders()) {
     const profilePath = path.join(folder, "profile.json");
     if (fs.existsSync(profilePath)) {
       const profile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
-      if (profile.email === normalized) return { profile, folder };
+      if (profile.username === normalized) return { profile, folder };
     }
   }
   return null;
 }
 
 function publicProfile(profile) {
-  return { id: profile.id, name: profile.name, email: profile.email, createdAt: profile.createdAt, lastLoginAt: profile.lastLoginAt };
+  return { id: profile.id, name: profile.name, username: profile.username, guest: Boolean(profile.guest), createdAt: profile.createdAt, lastLoginAt: profile.lastLoginAt };
 }
 
 function writeActivity(folder, text) {
@@ -68,43 +68,69 @@ function sessionFrom(request) {
   return token ? sessions.get(token) : null;
 }
 
+function visitorIp(request) {
+  return String(request.headers["cf-connecting-ip"] || request.headers["x-forwarded-for"] || request.socket.remoteAddress || "unknown").split(",")[0].trim();
+}
+
+function createSession(response, profile) {
+  const token = crypto.randomBytes(32).toString("hex");
+  sessions.set(token, profile.id);
+  sendJson(response, 200, { user: publicProfile(profile) }, { "Set-Cookie": `session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800` });
+}
+
 async function handleApi(request, response, pathname) {
   if (pathname === "/api/register" && request.method === "POST") {
-    const { name = "", email = "", password = "" } = await readBody(request);
-    const normalizedEmail = email.trim().toLowerCase();
-    if (name.trim().length < 2 || !normalizedEmail.includes("@") || password.length < 8) {
-      return sendJson(response, 400, { error: "Use a name, valid email, and password of at least 8 characters." });
+    const { username = "", password = "" } = await readBody(request);
+    const normalizedUsername = username.trim().toLowerCase();
+    if (!normalizedUsername) {
+      return sendJson(response, 400, { error: "Choose a username." });
     }
-    if (findUser(normalizedEmail)) return sendJson(response, 409, { error: "An account already exists for that email." });
+    if (findUser(normalizedUsername)) return sendJson(response, 409, { error: "That username is already taken." });
 
-    const id = safeUserId(normalizedEmail);
+    const id = safeUserId(normalizedUsername);
     const folder = path.join(userDataDirectory, id);
     const passwordRecord = hashPassword(password);
-    const profile = { id, name: name.trim(), email: normalizedEmail, createdAt: new Date().toISOString(), lastLoginAt: new Date().toISOString() };
+    const profile = { id, name: username.trim(), username: normalizedUsername, guest: false, createdAt: new Date().toISOString(), lastLoginAt: new Date().toISOString() };
     fs.mkdirSync(folder, { recursive: true });
     fs.writeFileSync(path.join(folder, "profile.json"), JSON.stringify(profile, null, 2));
     fs.writeFileSync(path.join(folder, "private-account.json"), JSON.stringify({ passwordSalt: passwordRecord.salt, passwordHash: passwordRecord.hash }, null, 2));
     fs.writeFileSync(path.join(folder, "notes.txt"), "Maintenance notes for this user.\n");
     writeActivity(folder, "Account created");
 
-    const token = crypto.randomBytes(32).toString("hex");
-    sessions.set(token, profile.id);
-    return sendJson(response, 201, { user: publicProfile(profile) }, { "Set-Cookie": `session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800` });
+    return createSession(response, profile);
   }
 
   if (pathname === "/api/login" && request.method === "POST") {
-    const { email = "", password = "" } = await readBody(request);
-    const user = findUser(email);
-    if (!user) return sendJson(response, 401, { error: "Email or password is incorrect." });
+    const { username = "", password = "" } = await readBody(request);
+    const user = findUser(username);
+    if (!user || user.profile.guest) return sendJson(response, 401, { error: "Username or password is incorrect." });
     const privateAccount = JSON.parse(fs.readFileSync(path.join(user.folder, "private-account.json"), "utf8"));
-    if (hashPassword(password, privateAccount.passwordSalt).hash !== privateAccount.passwordHash) return sendJson(response, 401, { error: "Email or password is incorrect." });
+    if (hashPassword(password, privateAccount.passwordSalt).hash !== privateAccount.passwordHash) return sendJson(response, 401, { error: "Username or password is incorrect." });
 
     user.profile.lastLoginAt = new Date().toISOString();
     fs.writeFileSync(path.join(user.folder, "profile.json"), JSON.stringify(user.profile, null, 2));
     writeActivity(user.folder, "Signed in");
-    const token = crypto.randomBytes(32).toString("hex");
-    sessions.set(token, user.profile.id);
-    return sendJson(response, 200, { user: publicProfile(user.profile) }, { "Set-Cookie": `session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800` });
+    return createSession(response, user.profile);
+  }
+
+  if (pathname === "/api/guest" && request.method === "POST") {
+    const ipHash = crypto.createHash("sha256").update(visitorIp(request)).digest("hex");
+    const id = `guest-${ipHash.slice(0, 12)}`;
+    const folder = path.join(userDataDirectory, id);
+    const profilePath = path.join(folder, "profile.json");
+    let profile;
+    if (fs.existsSync(profilePath)) {
+      profile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
+      profile.lastLoginAt = new Date().toISOString();
+      writeActivity(folder, "Guest returned");
+    } else {
+      profile = { id, name: "Guest", username: id, guest: true, ipHash, createdAt: new Date().toISOString(), lastLoginAt: new Date().toISOString() };
+      fs.mkdirSync(folder, { recursive: true });
+      fs.writeFileSync(path.join(folder, "notes.txt"), "Maintenance notes for this guest.\n");
+      writeActivity(folder, "Guest profile created");
+    }
+    fs.writeFileSync(profilePath, JSON.stringify(profile, null, 2));
+    return createSession(response, profile);
   }
 
   if (pathname === "/api/me" && request.method === "GET") {

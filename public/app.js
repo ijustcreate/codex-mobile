@@ -45,6 +45,7 @@ document.addEventListener("submit", async event => {
 
 document.addEventListener("click", async event => {
   if (event.target.closest("#switch-auth")) { authMode = authMode === "login" ? "register" : "login"; showPage(); return; }
+  if (event.target.closest("#guest-login")) { const result = await api("/api/guest", { method: "POST" }); currentUser = result.user; showPage(); return; }
   if (event.target.closest("#logout")) { await api("/api/logout", { method: "POST" }); currentUser = null; showPage(); return; }
   const link = event.target.closest("[data-link]");
   if (!link) return;
