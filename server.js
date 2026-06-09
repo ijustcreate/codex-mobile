@@ -8,6 +8,8 @@ const publicDirectory = path.join(__dirname, "public");
 const userDataDirectory = path.join(__dirname, "user-data");
 const sessions = new Map();
 const mmoPlayers = new Map();
+const stopMotionDirectory = path.join(__dirname, "user-data", "_stop-motion-projects");
+fs.mkdirSync(stopMotionDirectory, { recursive: true });
 
 const contentTypes = { ".css": "text/css", ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml" };
 fs.mkdirSync(userDataDirectory, { recursive: true });
@@ -80,6 +82,16 @@ function createSession(response, profile) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (pathname === "/api/stop-motion" && request.method === "GET") {
+    const id = sessionFrom(request); if (!id) return sendJson(response, 401, { error: "Not signed in." });
+    const file = path.join(stopMotionDirectory, `${id}.json`);
+    return sendJson(response, 200, { frames: fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : [] });
+  }
+  if (pathname === "/api/stop-motion" && request.method === "POST") {
+    const id = sessionFrom(request); if (!id) return sendJson(response, 401, { error: "Not signed in." });
+    const { frames = [] } = await readBody(request); if (!Array.isArray(frames) || frames.length > 120) return sendJson(response, 400, { error: "Invalid project." });
+    fs.writeFileSync(path.join(stopMotionDirectory, `${id}.json`), JSON.stringify(frames)); return sendJson(response, 200, { ok: true });
+  }
   if (pathname === "/api/mmo" && request.method === "GET") {
     const id = sessionFrom(request);
     if (!id) return sendJson(response, 401, { error: "Not signed in." });
