@@ -1,0 +1,10 @@
+{
+  "name": "codex-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A modular, minimal web app designed to run locally and be shared through a secure tunnel.",
+  "scripts": {
+    "start": "node server.js",
+    "share": "npx --yes localtunnel --port 3000"
+  }
+}
