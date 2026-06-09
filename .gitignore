@@ -1,3 +1,7 @@
 node_modules/
 .DS_Store
 npm-debug.log*
+user-data/*
+!user-data/README.md
+tools/*
+!tools/README.md

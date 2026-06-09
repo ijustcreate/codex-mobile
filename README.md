@@ -4,7 +4,7 @@ A clean, modular web app that runs on your machine and can be opened from a phon
 
 ## Launch
 
-Double-click **Launch Codex Mobile.bat**. Your browser opens the local app automatically. The launcher window prints a temporary public URL that you can open on your phone.
+Double-click **Launch Codex Mobile.bat**. Your browser opens the local app automatically. The launcher window prints a `trycloudflare.com` public URL that you can share with any device. It does not require a tunnel password.
 
 Keep the launcher window open while using either link. Closing it stops the app.
 
@@ -15,9 +15,10 @@ Keep the launcher window open while using either link. Closing it stops the app.
 - `public/styles/` contains shared visual design rules.
 - `server.js` serves the app from your computer.
 - `launch-app.ps1` starts the app and creates its temporary internet link.
+- `user-data/` contains one readable folder per registered user.
 
 To add a mini project, create a module in `public/pages/`, then register it in `public/app.js`.
 
 ## Security note
 
-The public URL is temporary and changes each time the launcher starts. Anyone with that URL can open the app while it is running, so do not put private information in it.
+The public URL is temporary and changes each time the launcher starts. Visitors must create an account or sign in. Passwords are securely hashed, but this lightweight app is intended for personal projects rather than sensitive or regulated information.
