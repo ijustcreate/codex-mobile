@@ -4,10 +4,11 @@ import { render as home } from "./pages/home.js";
 import { render as pageOne } from "./pages/page-one.js";
 import { render as pageTwo } from "./pages/page-two.js";
 import { render as pageThree } from "./pages/page-three.js";
+import { render as pageFour } from "./pages/page-four.js";
 
 const routes = {
   "/": { label: "Home", render: home }, "/page-one": { label: "One", render: pageOne },
-  "/page-two": { label: "Two", render: pageTwo }, "/page-three": { label: "Three", render: pageThree }
+  "/page-two": { label: "Two", render: pageTwo }, "/page-three": { label: "Three", render: pageThree }, "/page-four": { label: "Four", render: pageFour }
 };
 let currentUser = null;
 let authMode = "login";

@@ -8,6 +8,7 @@ const publicDirectory = path.join(__dirname, "public");
 const userDataDirectory = path.join(__dirname, "user-data");
 const sessions = new Map();
 const mmoPlayers = new Map();
+const questRooms = new Map();
 const stopMotionDirectory = path.join(__dirname, "user-data", "_stop-motion-projects");
 const scoresFile = path.join(__dirname, "user-data", "tab-three-high-scores.json");
 fs.mkdirSync(stopMotionDirectory, { recursive: true });
@@ -83,6 +84,18 @@ function createSession(response, profile) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (pathname === "/api/quest/create" && request.method === "POST") {
+    const id=sessionFrom(request);if(!id)return sendJson(response,401,{error:"Not signed in."});const body=await readBody(request),code=crypto.randomBytes(3).toString("hex").toUpperCase();
+    const room={code,status:"lobby",turn:0,players:[{id,name:String(body.name||"Guide").slice(0,16),hero:"Lantern Knight",stars:0,kindness:0,pos:0,ready:true}],tiles:Array.from({length:20},(_,i)=>({type:["path","treasure","monster","quest","spring","campfire"][i%6],revealed:i===0})),log:["A new lantern quest begins."]};questRooms.set(code,room);return sendJson(response,200,{room});
+  }
+  if (pathname === "/api/quest/join" && request.method === "POST") {
+    const id=sessionFrom(request);if(!id)return sendJson(response,401,{error:"Not signed in."});const b=await readBody(request),room=questRooms.get(String(b.code||"").toUpperCase());if(!room)return sendJson(response,404,{error:"Quest not found."});if(!room.players.some(p=>p.id===id)&&room.players.length<4)room.players.push({id,name:String(b.name||"Explorer").slice(0,16),hero:b.hero||"Mushroom Wizard",stars:0,kindness:0,pos:0,ready:true});return sendJson(response,200,{room});
+  }
+  if (pathname.startsWith("/api/quest/") && request.method === "GET") {const code=pathname.split("/").pop(),room=questRooms.get(code);return room?sendJson(response,200,{room}):sendJson(response,404,{error:"Quest not found."})}
+  if (pathname === "/api/quest/action" && request.method === "POST") {
+    const id=sessionFrom(request);if(!id)return sendJson(response,401,{error:"Not signed in."});const b=await readBody(request),room=questRooms.get(b.code),player=room?.players.find(p=>p.id===id);if(!room||!player)return sendJson(response,404,{error:"Quest not found."});if(room.players[room.turn]?.id!==id)return sendJson(response,400,{error:"Wait for your turn."});
+    if(b.action==="move"){player.pos=Math.min(19,player.pos+1);room.tiles[player.pos].revealed=true;const t=room.tiles[player.pos].type;if(t==="treasure"){player.stars++;room.log.push(`${player.name} found a moonberry treasure!`)}else if(t==="monster"){player.stars++;room.log.push(`${player.name} bravely greeted a Sock Sprite.`)}else if(t==="quest"){player.stars+=2;room.log.push(`${player.name} completed a tiny quest.`)}else room.log.push(`${player.name} explored a ${t} tile.`)}if(b.action==="help"){player.kindness++;player.stars++;room.log.push(`${player.name} helped the whole party.`)}room.turn=(room.turn+1)%room.players.length;return sendJson(response,200,{room});
+  }
   if (pathname === "/api/scores" && request.method === "GET") return sendJson(response, 200, { scores: fs.existsSync(scoresFile) ? JSON.parse(fs.readFileSync(scoresFile, "utf8")) : [] });
   if (pathname === "/api/scores" && request.method === "POST") {
     const id = sessionFrom(request); if (!id) return sendJson(response, 401, { error: "Not signed in." });
