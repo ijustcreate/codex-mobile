@@ -9,6 +9,7 @@ const userDataDirectory = path.join(__dirname, "user-data");
 const sessions = new Map();
 const mmoPlayers = new Map();
 const questRooms = new Map();
+const arenaPlayers = new Map();
 const stopMotionDirectory = path.join(__dirname, "user-data", "_stop-motion-projects");
 const scoresFile = path.join(__dirname, "user-data", "tab-three-high-scores.json");
 fs.mkdirSync(stopMotionDirectory, { recursive: true });
@@ -84,6 +85,9 @@ function createSession(response, profile) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (pathname === "/api/quest/rooms" && request.method === "GET") return sendJson(response,200,{rooms:[...questRooms.values()].map(r=>({code:r.code,players:r.players.length,maxPlayers:4,status:r.status}))});
+  if (pathname === "/api/arena" && request.method === "GET") {const id=sessionFrom(request);if(!id)return sendJson(response,401,{error:"Not signed in."});const now=Date.now();for(const [pid,p] of arenaPlayers)if(now-p.updatedAt>15000)arenaPlayers.delete(pid);const all=[...arenaPlayers.values()].sort((a,b)=>a.joinedAt-b.joinedAt);const index=all.findIndex(p=>p.id===id);return sendJson(response,200,{players:all.slice(0,4),queue:all.slice(4).map((p,i)=>({name:p.name,position:i+1})),role:index>=0&&index<4?"player":"queued"})}
+  if (pathname === "/api/arena" && request.method === "POST") {const id=sessionFrom(request);if(!id)return sendJson(response,401,{error:"Not signed in."});const b=await readBody(request),old=arenaPlayers.get(id);arenaPlayers.set(id,{id,name:String(b.name||"Player").slice(0,16),x:Number(b.x)||100,y:Number(b.y)||100,hp:Number(b.hp)||20,score:Number(b.score)||0,joinedAt:old?.joinedAt||Date.now(),updatedAt:Date.now()});return sendJson(response,200,{ok:true})}
   if (pathname === "/api/quest/create" && request.method === "POST") {
     const id=sessionFrom(request);if(!id)return sendJson(response,401,{error:"Not signed in."});const body=await readBody(request),code=crypto.randomBytes(3).toString("hex").toUpperCase();
     const room={code,status:"lobby",turn:0,players:[{id,name:String(body.name||"Guide").slice(0,16),hero:"Lantern Knight",stars:0,kindness:0,pos:0,ready:true}],tiles:Array.from({length:20},(_,i)=>({type:["path","treasure","monster","quest","spring","campfire"][i%6],revealed:i===0})),log:["A new lantern quest begins."]};questRooms.set(code,room);return sendJson(response,200,{room});
