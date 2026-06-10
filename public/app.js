@@ -21,6 +21,7 @@ async function api(path, options = {}) {
 }
 
 function showPage(path = window.location.pathname) {
+  try {
   if (!currentUser) {
     document.querySelector("#navigation").innerHTML = "";
     document.querySelector("#app").innerHTML = authScreen(authMode);
@@ -30,6 +31,10 @@ function showPage(path = window.location.pathname) {
   document.querySelector("#navigation").innerHTML = navigation(routes, path, currentUser);
   document.querySelector("#app").innerHTML = route.render();
   window.scrollTo(0, 0);
+  } catch (error) {
+    console.error(error);
+    document.querySelector("#app").innerHTML = `<section class="auth-page"><div class="auth-card"><h1>Loading issue.</h1><button class="primary-button" onclick="location.reload()">Refresh</button></div></section>`;
+  }
 }
 
 document.addEventListener("submit", async event => {
