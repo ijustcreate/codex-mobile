@@ -1,8 +1,134 @@
-let stop=()=>{};const TYPES={octorok:{color:"#f27b64",hp:7,atk:2,ai:"wander"},keese:{color:"#b895ff",hp:4,atk:1,ai:"chase"},wisp:{color:"#8ee9ff",hp:3,atk:0,ai:"flee"},moblin:{color:"#ffb16a",hp:10,atk:3,ai:"patrol"},snake:{color:"#c8eb72",hp:8,atk:2,ai:"snake"}};
-export function render(){queueMicrotask(start);return `<section class="mini-app"><div class="game-toolbar"><div><b>ONE PIXEL MMO</b><small id="mmo-status">Choose a hero</small></div><div><b id="mmo-level">LV 1</b><small id="mmo-xp">0 / 5 XP</small></div></div><div class="quest-strip" id="quest">Find a key</div><div class="panel-buttons"><button id="guide-open">GUIDE</button><button id="inventory-open">INVENTORY</button></div><div class="game-stage"><canvas id="mmo-canvas"></canvas><div class="creator" id="creator"><h2>Choose a class</h2><div class="class-grid"><button data-class="warrior"><b>Warrior</b><small>Cleave</small></button><button data-class="rogue"><b>Rogue</b><small>Dash</small></button><button data-class="wizard"><b>Wizard</b><small>Fireball</small></button></div></div><div class="field-guide" id="guide"><button data-close="guide">Close</button><h2>Visual Guide</h2><div class="guide-grid" id="guide-grid"></div></div><div class="inventory-panel" id="inventory"><header><b>Pack</b><button data-close="inventory">Close</button></header><div id="inv"></div></div><div class="mobile-controls"><div class="dpad"><button data-move="up">UP</button><button data-move="left">LEFT</button><button data-move="down">DOWN</button><button data-move="right">RIGHT</button></div><button class="action-orb" id="attack">ATK</button></div></div></section>`}
-function start(){stop();const c=document.querySelector("#mmo-canvas");if(!c)return;const x=c.getContext("2d"),W=1000,H=760,p={x:480,y:650,cls:"",hp:24,mana:12,level:1,xp:0,keys:0,potions:1,gold:0,dir:{x:0,y:-1}},trees=Array.from({length:28},(_,i)=>({x:40+(i*151)%900,y:260+(i*199)%430})),chests=[{x:110,y:120},{x:540,y:160},{x:870,y:620}],foes=Array.from({length:20},(_,i)=>enemy(Object.keys(TYPES)[i%5],40+Math.random()*900,250+Math.random()*450)),boss={...enemy("moblin",835,130),hp:50,max:50,boss:true};let live=true,tick=0,shots=[],orbs=[];
-function enemy(type,x,y){let t=TYPES[type];return{type,x,y,color:t.color,hp:t.hp,max:t.hp,atk:t.atk,ai:t.ai,phase:Math.random()*8,alive:true}}function resize(){c.width=c.clientWidth*devicePixelRatio;c.height=c.clientHeight*devicePixelRatio;x.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}function blocked(a,b){return a<12||a>W-12||b<12||b>H-12||trees.some(t=>Math.hypot(a-t.x,b-t.y)<17)}function move(a,b){p.dir={x:a,y:b};let s=p.cls==="rogue"?13:9,nx=p.x+a*s,ny=p.y+b*s;if(!blocked(nx,ny)){p.x=nx;p.y=ny}}function hurt(e,n){e.hp-=n;if(e.hp<=0){e.alive=false;orbs.push({x:e.x,y:e.y});if(Math.random()<.4)p.keys++;if(Math.random()<.45)p.potions++;p.gold+=e.boss?100:5}}function attack(){if(p.cls==="wizard"){if(p.mana<2)return;p.mana-=2;shots.push({x:p.x,y:p.y,vx:p.dir.x*9,vy:p.dir.y*9,life:70})}else[...foes,boss].filter(e=>e.alive&&Math.hypot(e.x-p.x,e.y-p.y)<65).forEach(e=>hurt(e,p.cls==="warrior"?5:3))}
-function update(){tick++;p.mana=Math.min(12,p.mana+.04);[...foes,boss].filter(e=>e.alive).forEach((e,i)=>{e.phase+=.07;let d=Math.hypot(p.x-e.x,p.y-e.y),a=0,b=0;if((e.ai==="chase"||e.boss)&&d<280){a=(p.x-e.x)/d;b=(p.y-e.y)/d}if(e.ai==="flee"&&d<140){a=(e.x-p.x)/d;b=(e.y-p.y)/d}if(["wander","patrol"].includes(e.ai)){a+=Math.cos(e.phase+i)*.6;b+=Math.sin(e.phase+i)*.6}if(e.ai==="snake"){a+=Math.cos(e.phase*3);b+=Math.sin(e.phase)}e.x=Math.max(15,Math.min(W-15,e.x+a));e.y=Math.max(15,Math.min(H-15,e.y+b));if(e.atk&&d<17&&tick%50===0)p.hp=Math.max(0,p.hp-e.atk)});shots.forEach(s=>{s.x+=s.vx;s.y+=s.vy;s.life--;[...foes,boss].filter(e=>e.alive&&Math.hypot(e.x-s.x,e.y-s.y)<13).forEach(e=>{hurt(e,4);s.life=0})});shots=shots.filter(s=>s.life>0);orbs.forEach(o=>{let d=Math.hypot(p.x-o.x,p.y-o.y);if(d<100){o.x+=(p.x-o.x)/d*3;o.y+=(p.y-o.y)/d*3}if(d<12){o.dead=true;p.xp++;if(p.xp>=p.level*5){p.xp=0;p.level++}}});orbs=orbs.filter(o=>!o.dead);chests.forEach(q=>{if(!q.open&&Math.hypot(p.x-q.x,p.y-q.y)<28){q.open=true;p.potions++;p.gold+=20;if(Math.random()<.6)p.keys++}});ui()}
-function ui(){document.querySelector("#mmo-status").textContent=`HP ${p.hp}/24 · MANA ${Math.floor(p.mana)}/12`;document.querySelector("#mmo-level").textContent=`LV ${p.level}`;document.querySelector("#mmo-xp").textContent=`${p.xp} / ${p.level*5} XP`;document.querySelector("#quest").textContent=!p.keys?"Find a key in a chest or from an enemy":boss.alive?"Enter the dark castle and defeat the boss":"Castle cleared";document.querySelector("#inv").innerHTML=`<p>Keys: ${p.keys}</p><p>Gold: ${p.gold}</p><p>Potions: ${p.potions}</p><button id="use-potion">Use potion</button>`;document.querySelector("#use-potion").onclick=()=>{if(p.potions){p.potions--;p.hp=Math.min(24,p.hp+10)}}}
-function unit(e){if(!e.alive)return;let s=1+Math.sin(e.phase*4)*.16;x.fillStyle="rgba(0,0,0,.3)";x.fillRect(e.x-8,e.y+8,16,4);x.fillStyle=e.color;x.fillRect(e.x-6*s,e.y-6/s,12*s,12/s);if(e.hp<e.max||e.boss){x.fillStyle="#1b1014";x.fillRect(e.x-15,e.y-19,30,5);x.fillStyle=e.boss?"#d85cff":"#ff6079";x.fillRect(e.x-14,e.y-18,28*e.hp/e.max,3)}}function draw(t){if(!live)return;update();let w=c.clientWidth,h=c.clientHeight,ox=w/2-p.x,oy=h/2-p.y,day=(Math.sin(t/18000)+1)/2;x.fillStyle="#000";x.fillRect(0,0,w,h);x.save();x.translate(ox,oy);x.fillStyle=`rgb(${45+day*30},${95+day*45},${50+day*35})`;x.fillRect(0,0,W,H);for(let a=8;a<W;a+=19)for(let b=8;b<H;b+=19){x.fillStyle=(a+b)%38?"#6da45d":"#7bb56a";x.fillRect(a,b,2,2)}x.strokeStyle="#a89268";x.lineWidth=3;x.strokeRect(1,1,W-2,H-2);x.fillStyle="#202532";x.fillRect(720,40,230,190);x.strokeStyle="#080a10";x.lineWidth=10;x.strokeRect(720,40,230,190);trees.forEach(q=>{x.fillStyle="#70472c";x.fillRect(q.x-4,q.y-5,8,17)});chests.forEach(q=>{x.fillStyle=q.open?"#5f4938":"#c0833d";x.fillRect(q.x-9,q.y-7,18,14)});foes.forEach(unit);unit(boss);orbs.forEach(o=>{x.fillStyle="#c7fbff";x.fillRect(o.x-3,o.y-3,6,6)});shots.forEach(s=>{x.fillStyle="#ff995f";x.fillRect(s.x-3,s.y-3,6,6)});x.fillStyle="rgba(0,0,0,.35)";x.fillRect(p.x-9,p.y+8,18,5);x.fillStyle=p.cls==="warrior"?"#ffb36b":p.cls==="rogue"?"#9cff9c":"#ae9cff";x.fillRect(p.x-7,p.y-7,14,14);trees.forEach(q=>{x.globalAlpha=Math.hypot(q.x-p.x,q.y-p.y)<32?.35:1;x.fillStyle="#42b85e";x.fillRect(q.x-19,q.y-29,38,29)});x.restore();x.globalAlpha=1;x.fillStyle=`rgba(4,8,25,${.7-day*.7})`;x.fillRect(0,0,w,h);requestAnimationFrame(draw)}
-document.querySelector("#guide-grid").innerHTML=Object.entries(TYPES).map(([n,e])=>`<article><i style="background:${e.color}"></i><b>${n}</b><small>HP ${e.hp} · ATK ${e.atk}</small></article>`).join("")+`<article><i style="background:#202532"></i><b>Castle Boss</b><small>HP 50 · ATK 3</small></article>`;document.querySelectorAll("[data-class]").forEach(b=>b.onclick=()=>{p.cls=b.dataset.class;document.querySelector("#creator").remove()});document.querySelectorAll("[data-move]").forEach(b=>b.onclick=()=>move(b.dataset.move==="left"?-1:b.dataset.move==="right"?1:0,b.dataset.move==="up"?-1:b.dataset.move==="down"?1:0));document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>document.querySelector(`#${b.dataset.close}`).classList.remove("show"));document.querySelector("#guide-open").onclick=()=>document.querySelector("#guide").classList.add("show");document.querySelector("#inventory-open").onclick=()=>document.querySelector("#inventory").classList.add("show");document.querySelector("#attack").onclick=attack;const kd=e=>{if(["ArrowUp","w"].includes(e.key))move(0,-1);if(["ArrowDown","s"].includes(e.key))move(0,1);if(["ArrowLeft","a"].includes(e.key))move(-1,0);if(["ArrowRight","d"].includes(e.key))move(1,0);if(e.code==="Space")attack()};addEventListener("keydown",kd);addEventListener("resize",resize);resize();ui();requestAnimationFrame(draw);stop=()=>{live=false;removeEventListener("keydown",kd);removeEventListener("resize",resize)}}
+let stopTabOne = () => {};
+
+const baseEntities = [
+  { id: "player", name: "Player Sprite", category: "character", color: "#9be7ff", size: 18, hp: 24, description: "The editable hero sprite used by the player." },
+  { id: "slime", name: "Lake Slime", category: "enemy", color: "#65d98f", size: 16, hp: 6, damage: 1, description: "Slow enemy. Bumps the player for light damage." },
+  { id: "bat", name: "Purple Bat", category: "enemy", color: "#b895ff", size: 14, hp: 4, damage: 1, description: "Does 1 damage about once per second when touching you." },
+  { id: "apple", name: "Apple Drop", category: "drop", color: "#ff5d6c", size: 10, description: "Collect to heal a little." },
+  { id: "armor", name: "Soft Armor", category: "drop", color: "#b8c4d8", size: 12, description: "A future defensive drop." },
+  { id: "tree", name: "Big Tree", category: "doodad", color: "#42b85e", size: 42, description: "Leaves are visual; only the trunk blocks movement." },
+  { id: "bush", name: "Bush", category: "doodad", color: "#65c46b", size: 20, description: "Decorative ground cover." },
+  { id: "castle", name: "Castle", category: "structure", color: "#252b36", size: 120, description: "Editable dark-walled castle with a door." }
+];
+
+export function render() {
+  queueMicrotask(start);
+  return `<section class="mini-app tab-one-app">
+    <div class="game-toolbar">
+      <div><b>ONE PIXEL MMO LAB</b><small id="mmo-status">Safe zone · choose a class</small><span class="health-track"><i id="player-health"></i></span></div>
+      <div><b id="mmo-level">LV 1</b><small id="wet-status">DRY</small></div>
+    </div>
+    <div class="quest-strip">Build, edit, and test the world live. Water slows you when wet.</div>
+    <div class="panel-buttons"><button id="guide-open">GUIDE</button><button id="editor-open">ENTITY EDITOR</button><button id="paint-open">PIXEL ART</button></div>
+    <div class="game-stage"><canvas id="mmo-canvas"></canvas>
+      <div class="creator" id="creator"><h2>Choose a class</h2><div class="class-grid"><button data-class="warrior"><b>Warrior</b><small>Sword</small></button><button data-class="rogue"><b>Rogue</b><small>Dagger</small></button><button data-class="wizard"><b>Wizard</b><small>Staff</small></button><button data-class="pilot"><b>Space Pilot</b><small>Blaster</small></button></div></div>
+      <div class="field-guide" id="guide"><button data-close="guide">Close</button><h2>Guide</h2><div class="guide-grid" id="guide-grid"></div></div>
+      <div class="editor-modal" id="entity-editor"><header><b>Entity Editor</b><button data-close="entity-editor">Close</button></header><form id="entity-form"><input name="name" placeholder="Name" required><select name="category"><option>enemy</option><option>drop</option><option>doodad</option><option>character</option><option>structure</option></select><input name="color" type="color" value="#ff9b6b"><input name="size" type="number" min="4" max="96" value="16"><textarea name="description" placeholder="What does it do?"></textarea><button>Save entity to server</button></form><div id="entity-list"></div></div>
+      <div class="editor-modal" id="paint-editor"><header><b>Pixel Art</b><button data-close="paint-editor">Close</button></header><div class="paint-tools"><input id="paint-name" placeholder="Sprite name"><input id="paint-color" type="color" value="#9be7ff"><input id="paint-size" type="number" min="8" max="32" value="16"><button id="paint-clear">Clear</button><button id="paint-save">Save PNG data</button></div><canvas id="paint-canvas" width="256" height="256"></canvas></div>
+      <div class="mobile-controls"><div class="dpad"><button data-move="up">UP</button><button data-move="left">LEFT</button><button data-move="down">DOWN</button><button data-move="right">RIGHT</button></div><button class="action-orb" id="attack">ATK</button></div>
+    </div>
+  </section>`;
+}
+
+function start() {
+  stopTabOne();
+  const canvas = document.querySelector("#mmo-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const world = { w: 1200, h: 850, safe: { x: 90, y: 650, r: 85 }, castle: { x: 860, y: 95, w: 230, h: 170, doorX: 970 } };
+  const player = { x: 90, y: 650, hp: 24, maxHp: 24, wet: 0, className: "", dir: { x: 1, y: 0 }, attackTime: 0 };
+  const water = [{ x: 360, y: 470, r: 95 }, { x: 0, y: 350, w: 1200, h: 42 }];
+  const trees = Array.from({ length: 22 }, (_, i) => ({ x: 170 + (i * 173) % 930, y: 115 + (i * 127) % 650 }));
+  const bushes = Array.from({ length: 18 }, (_, i) => ({ x: 140 + (i * 211) % 940, y: 140 + (i * 89) % 620 }));
+  const enemies = [
+    { type: "slime", x: 520, y: 555, hp: 6, size: 16, color: "#65d98f", damage: 1, lastHit: 0 },
+    { type: "bat", x: 680, y: 390, hp: 4, size: 14, color: "#b895ff", damage: 1, lastHit: 0 }
+  ];
+  const drops = [];
+  let customEntities = [], assets = [], running = true;
+
+  function resize() { canvas.width = canvas.clientWidth * devicePixelRatio; canvas.height = canvas.clientHeight * devicePixelRatio; ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); }
+  function inWater(x, y) { return water.some(w => w.r ? Math.hypot(x - w.x, y - w.y) < w.r : x > w.x && x < w.x + w.w && y > w.y && y < w.y + w.h); }
+  function trunkBlocked(x, y) { return trees.some(t => Math.abs(x - t.x) < 8 && y > t.y + 5 && y < t.y + 28); }
+  function castleBlocked(x, y) {
+    const c = world.castle, inside = x > c.x && x < c.x + c.w && y > c.y && y < c.y + c.h;
+    const door = x > c.doorX - 20 && x < c.doorX + 20 && y > c.y + c.h - 18;
+    return inside && !door;
+  }
+  function blocked(x, y) { return x < 12 || x > world.w - 12 || y < 12 || y > world.h - 12 || trunkBlocked(x, y) || castleBlocked(x, y); }
+  function separate(a, b, min) {
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (!d || d >= min) return;
+    const push = (min - d) / 2, ux = (a.x - b.x) / d, uy = (a.y - b.y) / d;
+    if (!blocked(a.x + ux * push, a.y + uy * push)) { a.x += ux * push; a.y += uy * push; }
+    b.x -= ux * push; b.y -= uy * push;
+  }
+  function move(dx, dy) {
+    if (!player.className) return;
+    player.dir = { x: dx, y: dy };
+    const speed = player.wet > 0 ? 4 : 7, nx = player.x + dx * speed, ny = player.y + dy * speed;
+    if (!blocked(nx, ny)) { player.x = nx; player.y = ny; }
+  }
+  function attack() {
+    if (!player.className) return;
+    player.attackTime = 12;
+    enemies.forEach(e => { if (Math.hypot(e.x - player.x, e.y - player.y) < 45) { e.hp -= player.className === "warrior" ? 3 : 2; if (e.hp <= 0) drops.push({ x: e.x, y: e.y, type: "apple" }); } });
+  }
+  function update() {
+    if (!player.className) return;
+    player.wet = inWater(player.x, player.y) ? 90 : Math.max(0, player.wet - 1);
+    if (player.attackTime) player.attackTime--;
+    enemies.forEach(e => {
+      if (e.hp <= 0) return;
+      const d = Math.hypot(player.x - e.x, player.y - e.y);
+      if (d < 230 && Math.hypot(player.x - world.safe.x, player.y - world.safe.y) > world.safe.r) { e.x += (player.x - e.x) / d * 0.7; e.y += (player.y - e.y) / d * 0.7; }
+      separate(player, e, 26);
+      if (d < 28 && performance.now() - e.lastHit > 1000 && Math.hypot(player.x - world.safe.x, player.y - world.safe.y) > world.safe.r) { player.hp = Math.max(0, player.hp - e.damage); e.lastHit = performance.now(); }
+    });
+    drops.forEach(d => { if (!d.dead && Math.hypot(d.x - player.x, d.y - player.y) < 22) { d.dead = true; player.hp = Math.min(player.maxHp, player.hp + 4); } });
+    document.querySelector("#player-health").style.width = `${player.hp / player.maxHp * 100}%`;
+    document.querySelector("#mmo-status").textContent = `HP ${player.hp}/${player.maxHp}`;
+    document.querySelector("#wet-status").textContent = player.wet ? "WET · SLOWED" : "DRY";
+  }
+  function drawEntity(e) { ctx.fillStyle = e.color; ctx.fillRect(e.x - e.size / 2, e.y - e.size / 2, e.size, e.size); ctx.fillStyle = "#111"; ctx.fillRect(e.x + 3, e.y - 3, 3, 3); }
+  function draw() {
+    if (!running) return;
+    update();
+    const w = canvas.clientWidth, h = canvas.clientHeight, ox = w / 2 - player.x, oy = h / 2 - player.y;
+    ctx.fillStyle = "#05080b"; ctx.fillRect(0, 0, w, h); ctx.save(); ctx.translate(ox, oy);
+    ctx.fillStyle = "#548b48"; ctx.fillRect(0, 0, world.w, world.h);
+    for (let x = 0; x < world.w; x += 18) for (let y = 0; y < world.h; y += 18) { ctx.fillStyle = "#6dae5c"; ctx.fillRect(x, y, 2, 2); }
+    ctx.fillStyle = "#2c6f9f"; water.forEach(a => a.r ? (ctx.beginPath(), ctx.arc(a.x, a.y, a.r, 0, 7), ctx.fill()) : ctx.fillRect(a.x, a.y, a.w, a.h));
+    ctx.fillStyle = "rgba(155,231,255,.12)"; ctx.beginPath(); ctx.arc(world.safe.x, world.safe.y, world.safe.r, 0, 7); ctx.fill();
+    bushes.forEach(b => { ctx.fillStyle = "#3fa65a"; ctx.fillRect(b.x - 10, b.y - 7, 20, 14); });
+    trees.forEach(t => { ctx.fillStyle = "#70472c"; ctx.fillRect(t.x - 5, t.y + 7, 10, 24); ctx.fillStyle = "#43bd61"; ctx.fillRect(t.x - 24, t.y - 28, 48, 42); });
+    const c = world.castle; ctx.fillStyle = "#202632"; ctx.fillRect(c.x, c.y, c.w, c.h); ctx.strokeStyle = "#080a10"; ctx.lineWidth = 12; ctx.strokeRect(c.x, c.y, c.w, c.h); ctx.fillStyle = "#6f4a2e"; ctx.fillRect(c.doorX - 20, c.y + c.h - 28, 40, 28);
+    enemies.filter(e => e.hp > 0).forEach(drawEntity);
+    drops.filter(d => !d.dead).forEach(d => { ctx.fillStyle = "#ff5d6c"; ctx.fillRect(d.x - 5, d.y - 5, 10, 10); });
+    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(player.x - 12, player.y + 11, 24, 5); ctx.fillStyle = "#9be7ff"; ctx.fillRect(player.x - 9, player.y - 8, 18, 18); ctx.fillStyle = "#f2c49b"; ctx.fillRect(player.x - 6, player.y - 18, 12, 10); ctx.fillStyle = "#111"; ctx.fillRect(player.x + player.dir.x * 6 - 1, player.y - 14 + player.dir.y * 4, 3, 3);
+    if (player.attackTime) { ctx.fillStyle = player.className === "wizard" ? "#ae9cff" : player.className === "pilot" ? "#ffe06b" : "#eee"; ctx.fillRect(player.x + player.dir.x * 22 - 4, player.y + player.dir.y * 22 - 4, 8, 8); }
+    ctx.restore(); requestAnimationFrame(draw);
+  }
+  async function loadCreations() { const data = await fetch("/api/tab-one").then(r => r.json()); customEntities = data.entities; assets = data.assets; renderEditorLists(); }
+  function renderEditorLists() {
+    const all = [...baseEntities, ...customEntities];
+    document.querySelector("#guide-grid").innerHTML = ["character", "enemy", "drop", "doodad", "structure"].map(cat => `<article><b>${cat.toUpperCase()}</b><small>${all.filter(e => e.category === cat).map(e => `<span style="color:${e.color}">${e.name}</span>: ${e.description || "Custom item"}`).join("<br>")}</small></article>`).join("");
+    document.querySelector("#entity-list").innerHTML = all.map(e => `<p><b style="color:${e.color}">${e.name}</b> · ${e.category} · size ${e.size}</p>`).join("");
+  }
+  function setupPaint() {
+    const pc = document.querySelector("#paint-canvas"), px = pc.getContext("2d"); let size = 16, color = "#9be7ff";
+    function grid() { size = Number(document.querySelector("#paint-size").value) || 16; color = document.querySelector("#paint-color").value; px.imageSmoothingEnabled = false; px.fillStyle = "#fff"; px.fillRect(0, 0, 256, 256); px.strokeStyle = "#ddd"; for (let i = 0; i <= size; i++) { const v = i * 256 / size; px.beginPath(); px.moveTo(v, 0); px.lineTo(v, 256); px.moveTo(0, v); px.lineTo(256, v); px.stroke(); } }
+    pc.onclick = e => { const r = pc.getBoundingClientRect(), cell = 256 / size, x = Math.floor((e.clientX - r.left) / r.width * size), y = Math.floor((e.clientY - r.top) / r.height * size); px.fillStyle = color; px.fillRect(x * cell + 1, y * cell + 1, cell - 2, cell - 2); };
+    document.querySelector("#paint-clear").onclick = grid;
+    document.querySelector("#paint-size").onchange = grid; document.querySelector("#paint-color").onchange = () => color = document.querySelector("#paint-color").value;
+    document.querySelector("#paint-save").onclick = async () => { await fetch("/api/tab-one/assets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: document.querySelector("#paint-name").value || "sprite", size, image: pc.toDataURL("image/png") }) }); loadCreations(); };
+    grid();
+  }
+  document.querySelectorAll("[data-class]").forEach(b => b.onclick = () => { player.className = b.dataset.class; document.querySelector("#creator").remove(); });
+  document.querySelectorAll("[data-move]").forEach(b => b.onclick = () => move(b.dataset.move === "left" ? -1 : b.dataset.move === "right" ? 1 : 0, b.dataset.move === "up" ? -1 : b.dataset.move === "down" ? 1 : 0));
+  document.querySelector("#attack").onclick = attack; document.querySelector("#guide-open").onclick = () => document.querySelector("#guide").classList.add("show"); document.querySelector("#editor-open").onclick = () => document.querySelector("#entity-editor").classList.add("show"); document.querySelector("#paint-open").onclick = () => document.querySelector("#paint-editor").classList.add("show");
+  document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => document.querySelector(`#${b.dataset.close}`).classList.remove("show"));
+  document.querySelector("#entity-form").onsubmit = async e => { e.preventDefault(); const body = Object.fromEntries(new FormData(e.target)); body.size = Number(body.size); await fetch("/api/tab-one/entities", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); e.target.reset(); loadCreations(); };
+  const key = e => { if (["ArrowUp", "w"].includes(e.key)) move(0, -1); if (["ArrowDown", "s"].includes(e.key)) move(0, 1); if (["ArrowLeft", "a"].includes(e.key)) move(-1, 0); if (["ArrowRight", "d"].includes(e.key)) move(1, 0); if (e.code === "Space") attack(); };
+  addEventListener("keydown", key); addEventListener("resize", resize); resize(); setupPaint(); loadCreations(); draw(); stopTabOne = () => { running = false; removeEventListener("keydown", key); removeEventListener("resize", resize); };
+}

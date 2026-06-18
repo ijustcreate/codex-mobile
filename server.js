@@ -12,7 +12,9 @@ const questRooms = new Map();
 const arenaPlayers = new Map();
 const stopMotionDirectory = path.join(__dirname, "user-data", "_stop-motion-projects");
 const scoresFile = path.join(__dirname, "user-data", "tab-three-high-scores.json");
+const tabOneDirectory = path.join(__dirname, "user-data", "_tab-one-creations");
 fs.mkdirSync(stopMotionDirectory, { recursive: true });
+fs.mkdirSync(tabOneDirectory, { recursive: true });
 
 const contentTypes = { ".css": "text/css", ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml" };
 fs.mkdirSync(userDataDirectory, { recursive: true });
@@ -85,6 +87,30 @@ function createSession(response, profile) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (pathname === "/api/tab-one" && request.method === "GET") {
+    const entitiesFile = path.join(tabOneDirectory, "entities.json");
+    const assetsFile = path.join(tabOneDirectory, "assets.json");
+    return sendJson(response, 200, {
+      entities: fs.existsSync(entitiesFile) ? JSON.parse(fs.readFileSync(entitiesFile, "utf8")) : [],
+      assets: fs.existsSync(assetsFile) ? JSON.parse(fs.readFileSync(assetsFile, "utf8")) : []
+    });
+  }
+  if (pathname === "/api/tab-one/entities" && request.method === "POST") {
+    const id = sessionFrom(request); if (!id) return sendJson(response, 401, { error: "Not signed in." });
+    const body = await readBody(request), file = path.join(tabOneDirectory, "entities.json");
+    const entities = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : [];
+    entities.push({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...body });
+    fs.writeFileSync(file, JSON.stringify(entities, null, 2));
+    return sendJson(response, 200, { entities });
+  }
+  if (pathname === "/api/tab-one/assets" && request.method === "POST") {
+    const id = sessionFrom(request); if (!id) return sendJson(response, 401, { error: "Not signed in." });
+    const body = await readBody(request), file = path.join(tabOneDirectory, "assets.json");
+    const assets = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : [];
+    assets.push({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...body });
+    fs.writeFileSync(file, JSON.stringify(assets, null, 2));
+    return sendJson(response, 200, { assets });
+  }
   if (pathname === "/api/quest/rooms" && request.method === "GET") return sendJson(response,200,{rooms:[...questRooms.values()].map(r=>({code:r.code,players:r.players.length,maxPlayers:4,status:r.status}))});
   if (pathname === "/api/arena" && request.method === "GET") {const id=sessionFrom(request);if(!id)return sendJson(response,401,{error:"Not signed in."});const now=Date.now();for(const [pid,p] of arenaPlayers)if(now-p.updatedAt>15000)arenaPlayers.delete(pid);const all=[...arenaPlayers.values()].sort((a,b)=>a.joinedAt-b.joinedAt);const index=all.findIndex(p=>p.id===id);return sendJson(response,200,{players:all.slice(0,4),queue:all.slice(4).map((p,i)=>({name:p.name,position:i+1})),role:index>=0&&index<4?"player":"queued"})}
   if (pathname === "/api/arena" && request.method === "POST") {const id=sessionFrom(request);if(!id)return sendJson(response,401,{error:"Not signed in."});const b=await readBody(request),old=arenaPlayers.get(id);arenaPlayers.set(id,{id,name:String(b.name||"Player").slice(0,16),x:Number(b.x)||100,y:Number(b.y)||100,hp:Number(b.hp)||20,score:Number(b.score)||0,joinedAt:old?.joinedAt||Date.now(),updatedAt:Date.now()});return sendJson(response,200,{ok:true})}
