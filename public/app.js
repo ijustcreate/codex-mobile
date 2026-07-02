@@ -33,6 +33,7 @@ async function api(path, options = {}) {
 }
 
 async function staticApi(path, options = {}) {
+  const cloud = window.CodexCloud;
   const users = JSON.parse(localStorage.getItem("static-users") || "{}");
   if (path === "/api/me") {
     const user = JSON.parse(localStorage.getItem("static-current-user") || "null");
@@ -40,9 +41,11 @@ async function staticApi(path, options = {}) {
     return { user };
   }
   if (path === "/api/users") {
+    try { const cloudUsers = await cloud?.listUsers(); if (cloudUsers) return { users: cloudUsers }; } catch (error) { console.warn("Cloud users unavailable", error); }
     return { users: Object.values(users).map(record => record.user).filter(user => !user.guest) };
   }
   if (path === "/api/guest") {
+    try { const cloudGuest = await cloud?.guest(); if (cloudGuest) { localStorage.setItem("static-current-user", JSON.stringify(cloudGuest)); return { user: cloudGuest }; } } catch (error) { console.warn("Cloud guest unavailable", error); }
     const guestId = localStorage.getItem("static-guest-id") || crypto.randomUUID();
     localStorage.setItem("static-guest-id", guestId);
     const user = { id: guestId, name: "Guest", username: "guest", guest: true };
@@ -51,6 +54,7 @@ async function staticApi(path, options = {}) {
   }
   if (path === "/api/register") {
     const data = JSON.parse(options.body || "{}"), username = data.username || "player";
+    try { const cloudUser = await cloud?.register(username); if (cloudUser) { localStorage.setItem("static-current-user", JSON.stringify(cloudUser)); return { user: cloudUser }; } } catch (error) { console.warn("Cloud register unavailable", error); }
     const user = { id: username, name: username, username, guest: false };
     users[username] = { user };
     localStorage.setItem("static-users", JSON.stringify(users));
@@ -59,6 +63,7 @@ async function staticApi(path, options = {}) {
   }
   if (path === "/api/login") {
     const data = JSON.parse(options.body || "{}"), record = users[data.username];
+    try { const cloudUser = await cloud?.login(data.username); if (cloudUser) { localStorage.setItem("static-current-user", JSON.stringify(cloudUser)); return { user: cloudUser }; } } catch (error) { console.warn("Cloud login unavailable", error); }
     if (!record) throw new Error("Choose a registered user.");
     localStorage.setItem("static-current-user", JSON.stringify(record.user));
     return { user: record.user };

@@ -135,18 +135,29 @@ function start() {
 
 async function tabOneLoad() {
   if (location.hostname.endsWith("github.io")) return {
-    entities: JSON.parse(localStorage.getItem("tab-one-entities") || "[]"),
-    assets: JSON.parse(localStorage.getItem("tab-one-assets") || "[]")
+    entities: await cloudRecords("tab_one_entity", "tab-one-entities"),
+    assets: await cloudRecords("tab_one_asset", "tab-one-assets")
   };
   return fetch("/api/tab-one").then(r => r.json());
 }
 
 async function tabOneSave(kind, body) {
   if (location.hostname.endsWith("github.io")) {
+    try { await window.CodexCloud?.saveRecord(kind === "entities" ? "tab_one_entity" : "tab_one_asset", body); } catch (error) { console.warn("Cloud save unavailable", error); }
     const key = `tab-one-${kind}`, items = JSON.parse(localStorage.getItem(key) || "[]");
     items.push({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...body });
     localStorage.setItem(key, JSON.stringify(items));
     return;
   }
   return fetch(`/api/tab-one/${kind}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+}
+
+async function cloudRecords(type, fallbackKey) {
+  try {
+    const records = await window.CodexCloud?.loadRecords(type);
+    if (records) return records;
+  } catch (error) {
+    console.warn("Cloud records unavailable", error);
+  }
+  return JSON.parse(localStorage.getItem(fallbackKey) || "[]");
 }

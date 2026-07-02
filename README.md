@@ -6,6 +6,8 @@ A clean, modular web app that runs on your machine and can be opened from a phon
 
 This project can also run as a static GitHub Pages site from the `public/` folder. In static mode, sign-in and Tab One creations use browser `localStorage`; Node-only server APIs are available only when running locally.
 
+The static app can also use Supabase for shared cloud data. Apply `supabase/migrations/20260702133000_codex_mobile_cloud.sql` to the same Supabase project used by Quest Compass, then GitHub Pages will use Supabase for users and Tab One creations with localStorage as a fallback.
+
 ## Launch
 
 Double-click **Launch Codex Mobile.bat**. Your browser opens the local app automatically. The launcher window prints a `trycloudflare.com` public URL that you can share with any device. It does not require a tunnel password.
