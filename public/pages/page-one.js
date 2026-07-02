@@ -109,7 +109,7 @@ function start() {
     if (player.attackTime) { ctx.fillStyle = player.className === "wizard" ? "#ae9cff" : player.className === "pilot" ? "#ffe06b" : "#eee"; ctx.fillRect(player.x + player.dir.x * 22 - 4, player.y + player.dir.y * 22 - 4, 8, 8); }
     ctx.restore(); requestAnimationFrame(draw);
   }
-  async function loadCreations() { const data = await fetch("/api/tab-one").then(r => r.json()); customEntities = data.entities; assets = data.assets; renderEditorLists(); }
+  async function loadCreations() { const data = await tabOneLoad(); customEntities = data.entities; assets = data.assets; renderEditorLists(); }
   function renderEditorLists() {
     const all = [...baseEntities, ...customEntities];
     document.querySelector("#guide-grid").innerHTML = ["character", "enemy", "drop", "doodad", "structure"].map(cat => `<article><b>${cat.toUpperCase()}</b><small>${all.filter(e => e.category === cat).map(e => `<span style="color:${e.color}">${e.name}</span>: ${e.description || "Custom item"}`).join("<br>")}</small></article>`).join("");
@@ -121,14 +121,32 @@ function start() {
     pc.onclick = e => { const r = pc.getBoundingClientRect(), cell = 256 / size, x = Math.floor((e.clientX - r.left) / r.width * size), y = Math.floor((e.clientY - r.top) / r.height * size); px.fillStyle = color; px.fillRect(x * cell + 1, y * cell + 1, cell - 2, cell - 2); };
     document.querySelector("#paint-clear").onclick = grid;
     document.querySelector("#paint-size").onchange = grid; document.querySelector("#paint-color").onchange = () => color = document.querySelector("#paint-color").value;
-    document.querySelector("#paint-save").onclick = async () => { await fetch("/api/tab-one/assets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: document.querySelector("#paint-name").value || "sprite", size, image: pc.toDataURL("image/png") }) }); loadCreations(); };
+    document.querySelector("#paint-save").onclick = async () => { await tabOneSave("assets", { name: document.querySelector("#paint-name").value || "sprite", size, image: pc.toDataURL("image/png") }); loadCreations(); };
     grid();
   }
   document.querySelectorAll("[data-class]").forEach(b => b.onclick = () => { player.className = b.dataset.class; document.querySelector("#creator").remove(); });
   document.querySelectorAll("[data-move]").forEach(b => b.onclick = () => move(b.dataset.move === "left" ? -1 : b.dataset.move === "right" ? 1 : 0, b.dataset.move === "up" ? -1 : b.dataset.move === "down" ? 1 : 0));
   document.querySelector("#attack").onclick = attack; document.querySelector("#guide-open").onclick = () => document.querySelector("#guide").classList.add("show"); document.querySelector("#editor-open").onclick = () => document.querySelector("#entity-editor").classList.add("show"); document.querySelector("#paint-open").onclick = () => document.querySelector("#paint-editor").classList.add("show");
   document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => document.querySelector(`#${b.dataset.close}`).classList.remove("show"));
-  document.querySelector("#entity-form").onsubmit = async e => { e.preventDefault(); const body = Object.fromEntries(new FormData(e.target)); body.size = Number(body.size); await fetch("/api/tab-one/entities", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); e.target.reset(); loadCreations(); };
+  document.querySelector("#entity-form").onsubmit = async e => { e.preventDefault(); const body = Object.fromEntries(new FormData(e.target)); body.size = Number(body.size); await tabOneSave("entities", body); e.target.reset(); loadCreations(); };
   const key = e => { if (["ArrowUp", "w"].includes(e.key)) move(0, -1); if (["ArrowDown", "s"].includes(e.key)) move(0, 1); if (["ArrowLeft", "a"].includes(e.key)) move(-1, 0); if (["ArrowRight", "d"].includes(e.key)) move(1, 0); if (e.code === "Space") attack(); };
   addEventListener("keydown", key); addEventListener("resize", resize); resize(); setupPaint(); loadCreations(); draw(); stopTabOne = () => { running = false; removeEventListener("keydown", key); removeEventListener("resize", resize); };
+}
+
+async function tabOneLoad() {
+  if (location.hostname.endsWith("github.io")) return {
+    entities: JSON.parse(localStorage.getItem("tab-one-entities") || "[]"),
+    assets: JSON.parse(localStorage.getItem("tab-one-assets") || "[]")
+  };
+  return fetch("/api/tab-one").then(r => r.json());
+}
+
+async function tabOneSave(kind, body) {
+  if (location.hostname.endsWith("github.io")) {
+    const key = `tab-one-${kind}`, items = JSON.parse(localStorage.getItem(key) || "[]");
+    items.push({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...body });
+    localStorage.setItem(key, JSON.stringify(items));
+    return;
+  }
+  return fetch(`/api/tab-one/${kind}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }

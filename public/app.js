@@ -14,10 +14,44 @@ let currentUser = null;
 let authMode = "login";
 
 async function api(path, options = {}) {
+  if (location.protocol === "file:" || location.hostname.endsWith("github.io")) return staticApi(path, options);
   const response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
   const body = await response.json();
   if (!response.ok) throw new Error(body.error);
   return body;
+}
+
+async function staticApi(path, options = {}) {
+  const users = JSON.parse(localStorage.getItem("static-users") || "{}");
+  if (path === "/api/me") {
+    const user = JSON.parse(localStorage.getItem("static-current-user") || "null");
+    if (!user) throw new Error("Not signed in.");
+    return { user };
+  }
+  if (path === "/api/guest") {
+    const user = { id: "guest", name: "Guest", username: "guest", guest: true };
+    localStorage.setItem("static-current-user", JSON.stringify(user));
+    return { user };
+  }
+  if (path === "/api/register") {
+    const data = JSON.parse(options.body || "{}"), username = data.username || "player";
+    const user = { id: username, name: username, username, guest: false };
+    users[username] = { user, password: data.password || "" };
+    localStorage.setItem("static-users", JSON.stringify(users));
+    localStorage.setItem("static-current-user", JSON.stringify(user));
+    return { user };
+  }
+  if (path === "/api/login") {
+    const data = JSON.parse(options.body || "{}"), record = users[data.username];
+    if (!record || record.password !== (data.password || "")) throw new Error("Username or password is incorrect.");
+    localStorage.setItem("static-current-user", JSON.stringify(record.user));
+    return { user: record.user };
+  }
+  if (path === "/api/logout") {
+    localStorage.removeItem("static-current-user");
+    return { ok: true };
+  }
+  throw new Error("Static mode does not support this API.");
 }
 
 function showPage(path = window.location.pathname) {

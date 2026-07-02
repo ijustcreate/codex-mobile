@@ -2,6 +2,10 @@
 
 A clean, modular web app that runs on your machine and can be opened from a phone through a temporary public link.
 
+## GitHub Pages
+
+This project can also run as a static GitHub Pages site from the `public/` folder. In static mode, sign-in and Tab One creations use browser `localStorage`; Node-only server APIs are available only when running locally.
+
 ## Launch
 
 Double-click **Launch Codex Mobile.bat**. Your browser opens the local app automatically. The launcher window prints a `trycloudflare.com` public URL that you can share with any device. It does not require a tunnel password.
