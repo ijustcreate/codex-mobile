@@ -12,6 +12,16 @@ const routes = {
 };
 let currentUser = null;
 let authMode = "login";
+const basePath = location.hostname.endsWith("github.io") ? "/codex-mobile" : "";
+
+function appPath(pathname = window.location.pathname) {
+  const path = basePath && pathname.startsWith(basePath) ? pathname.slice(basePath.length) || "/" : pathname;
+  return routes[path] ? path : "/";
+}
+
+function hrefFor(path) {
+  return `${basePath}${path}`;
+}
 
 async function api(path, options = {}) {
   if (location.protocol === "file:" || location.hostname.endsWith("github.io")) return staticApi(path, options);
@@ -61,8 +71,9 @@ function showPage(path = window.location.pathname) {
     document.querySelector("#app").innerHTML = authScreen(authMode);
     return;
   }
-  const route = routes[path] || routes["/"];
-  document.querySelector("#navigation").innerHTML = navigation(routes, path, currentUser);
+  const activePath = appPath(path);
+  const route = routes[activePath] || routes["/"];
+  document.querySelector("#navigation").innerHTML = navigation(routes, activePath, currentUser, hrefFor);
   document.querySelector("#app").innerHTML = route.render();
   window.scrollTo(0, 0);
   } catch (error) {
@@ -90,7 +101,7 @@ document.addEventListener("click", async event => {
   if (event.target.closest("#logout")) { await api("/api/logout", { method: "POST" }); currentUser = null; showPage(); return; }
   const link = event.target.closest("[data-link]");
   if (!link) return;
-  event.preventDefault(); history.pushState({}, "", link.href); showPage();
+  event.preventDefault(); history.pushState({}, "", link.getAttribute("href")); showPage();
 });
 
 window.addEventListener("popstate", () => showPage());

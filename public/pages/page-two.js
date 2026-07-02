@@ -26,8 +26,8 @@ function start() {
   document.querySelector("#clear").onclick = () => { clearInterval(timer); frames=[]; onion.getContext("2d").clearRect(0,0,onion.width,onion.height); update(); };
   document.querySelector("#save-local").onclick=()=>{localStorage.setItem("stop-motion-frames",JSON.stringify(frames));};
   document.querySelector("#load-local").onclick=()=>{frames=JSON.parse(localStorage.getItem("stop-motion-frames")||"[]");update();};
-  document.querySelector("#save-site").onclick=()=>fetch("/api/stop-motion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({frames})});
-  document.querySelector("#load-site").onclick=async()=>{frames=(await fetch("/api/stop-motion").then(r=>r.json())).frames;update()};
+  document.querySelector("#save-site").onclick=()=>{if(location.hostname.endsWith("github.io"))localStorage.setItem("stop-motion-site-frames",JSON.stringify(frames));else fetch("/api/stop-motion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({frames})})};
+  document.querySelector("#load-site").onclick=async()=>{frames=location.hostname.endsWith("github.io")?JSON.parse(localStorage.getItem("stop-motion-site-frames")||"[]"):(await fetch("/api/stop-motion").then(r=>r.json())).frames;update()};
   document.querySelector("#delete-frame").onclick=()=>{frames.splice(selected,1);selected=Math.max(0,selected-1);update()};
   document.querySelector("#insert").onclick=()=>{if(frames[selected])frames.splice(selected,0,frames[selected]);update()};
   document.querySelector("#draw-frame").onclick=()=>{if(!frames[selected])return;const image=new Image();image.onload=()=>{const c=document.createElement("canvas");c.width=image.width;c.height=image.height;const x=c.getContext("2d");x.drawImage(image,0,0);x.strokeStyle="#ff4f80";x.lineWidth=Math.max(4,c.width/100);x.beginPath();x.arc(c.width/2,c.height/2,Math.min(c.width,c.height)/5,0,7);x.stroke();frames[selected]=c.toDataURL("image/jpeg",.8);update()};image.src=frames[selected]};
