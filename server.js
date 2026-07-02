@@ -87,6 +87,15 @@ function createSession(response, profile) {
 }
 
 async function handleApi(request, response, pathname) {
+  if (pathname === "/api/users" && request.method === "GET") {
+    const users = getUserFolders().map(folder => {
+      const profilePath = path.join(folder, "profile.json");
+      if (!fs.existsSync(profilePath)) return null;
+      const profile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
+      return profile.guest ? null : publicProfile(profile);
+    }).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+    return sendJson(response, 200, { users });
+  }
   if (pathname === "/api/tab-one" && request.method === "GET") {
     const entitiesFile = path.join(tabOneDirectory, "entities.json");
     const assetsFile = path.join(tabOneDirectory, "assets.json");
@@ -187,11 +196,9 @@ async function handleApi(request, response, pathname) {
   }
 
   if (pathname === "/api/login" && request.method === "POST") {
-    const { username = "", password = "" } = await readBody(request);
+    const { username = "" } = await readBody(request);
     const user = findUser(username);
-    if (!user || user.profile.guest) return sendJson(response, 401, { error: "Username or password is incorrect." });
-    const privateAccount = JSON.parse(fs.readFileSync(path.join(user.folder, "private-account.json"), "utf8"));
-    if (hashPassword(password, privateAccount.passwordSalt).hash !== privateAccount.passwordHash) return sendJson(response, 401, { error: "Username or password is incorrect." });
+    if (!user || user.profile.guest) return sendJson(response, 401, { error: "Choose a registered user." });
 
     user.profile.lastLoginAt = new Date().toISOString();
     fs.writeFileSync(path.join(user.folder, "profile.json"), JSON.stringify(user.profile, null, 2));
